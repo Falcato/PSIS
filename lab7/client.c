@@ -93,8 +93,9 @@ int kv_read(int kv_descriptor, int key, char * value, int value_length){
 	if(mensagem2.type_msg == FAIL){
 		printf("falhou\n");
 	}else{
+		bzero(b, value_length);
 		n = read(kv_descriptor, b, value_length);
-		value = b;
+		value = b;//corrigir, imprime resto da recepçao anterior
 		printf ("recebi:-------%s--------\n", value);
 		if(n == -1){
 			printf("Erro: \n");
@@ -105,19 +106,39 @@ int kv_read(int kv_descriptor, int key, char * value, int value_length){
 	return 0;
 }
 
+int kv_delete(int kv_descriptor, int key){
+
+
+	return 0;
+}
+
 
 int main(){
 	
-	char e[] = "abdcde";
-	char *d;
-	int a = kv_connect("127.0.0.1", 9000);
 	
-	int c = kv_write(a, 3, e, strlen(e));
+	
+	int a = kv_connect("127.0.0.1", 9000);
+	char e[] = "millll";
+	int c = kv_write(a, 1000, e, strlen(e));
 	kv_close(a);
 	
-	int x = kv_connect("127.0.0.1", 9000);
-	int b = kv_read(x, 3, d, strlen(e));
+	int q = kv_connect("127.0.0.1", 9000);
+	char m[] = "cemm";
+	int l = kv_write(q, 100, m, strlen(m));
+	kv_close(q);
 	
+	
+	
+	int x = kv_connect("127.0.0.1", 9000);
+	char *d;
+	int b = kv_read(x, 1000, d, strlen(e));
+	kv_close(x);
+	
+	
+	
+	int y = kv_connect("127.0.0.1", 9000);
+	char *z;
+	int t = kv_read(y, 100, z, strlen(m));
 	
 	
 	exit(0);

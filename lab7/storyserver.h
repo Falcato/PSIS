@@ -3,6 +3,7 @@
 #define SUCCESS -4
 #define WRITE 1
 #define READ 2
+#define DELETE 3
 
 typedef struct message1{
 	int key;
