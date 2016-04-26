@@ -1,6 +1,7 @@
 //gcc server.c -lpthread -o server
  
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -10,10 +11,11 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <netdb.h>
-#include "storyserver.h"
 #include <pthread.h>
+#include <signal.h>
 #include "hash.h"
- 
+#include "storyserver.h" 
+
 //the thread function
 void *connection_handler(void *);
 
@@ -23,48 +25,21 @@ hashtable_t *hashtable;
 //mutex global variable
 pthread_mutex_t mux;
 
-int main(){
-	
-	
-	int fd, newfd, addrlen;
-	struct sockaddr_in addr;
-	//int n;
-	
-	//Create socket
-	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) exit(1);
-	puts("Socket created");
-	
-	//Prepare the sockaddr_in structure
-	memset((void*)&addr, (int)'\0', sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port = htons(9000);
-	
-	//Bind
-	if(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) exit(1);
-	puts("bind done");
-	
-	//Listen
-	if(listen(fd,5) == -1)
-	exit(1);//error
-	
-	addrlen = sizeof(addr);
-	pthread_t thread_id;
-	
-	hashtable = ht_create( 300 );
-	
-	while( (newfd = accept(fd, (struct sockaddr*)&addr, &addrlen)) ){
-			
-		//puts("Connection accepted");
-		if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &newfd) < 0 ){
-            perror("could not create thread");
-            exit (1);
-        }
-        pthread_join(thread_id, NULL);
-        //puts("Thread created and handle");
-	}
-	exit(0);
+//signal global variable
+volatile sig_atomic_t stop;
+
+//FILE global variable
+FILE *f;
+
+//shutdown signal handler
+void inthand(int signum) {
+	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
+	ht_print(hashtable);
+	ht_save(hashtable, f);
+	fclose(f);
+    exit(2);
 }
+
 
 // This will handle connection for each client
 void *connection_handler(void *socket_desc){
@@ -83,12 +58,12 @@ void *connection_handler(void *socket_desc){
 			printf("Error reading the message type\n");
 			exit(1);//error
 		}
-				if(n == 0){
+		if(n == 0){
 			puts("Client disconnected");
 			fflush(stdout);
 			return 0;
 		}
-		printf("tipo:%d, chave:%d \n", m_read.type_msg, m_read.key);
+		printf("tipo:%d, chave:%u \n", m_read.type_msg, m_read.key);
 		
 		//IF TYPE IS WRITE OR OVERWRITE
 		if( m_read.type_msg == WRITE  || m_read.type_msg == OVERWRITE){
@@ -111,7 +86,6 @@ void *connection_handler(void *socket_desc){
 			//MUTEX UNLOCK
 			pthread_mutex_unlock(&mux);
 			
-			//char *z=ht_print(hashtable, 1000);
 			
 			//SEND THE RESULT
 			if(a == -2){
@@ -186,7 +160,7 @@ void *connection_handler(void *socket_desc){
 			pthread_mutex_lock(&mux);
 			
 			if(ht_get(hashtable, m_read.key) == NULL){
-				printf("The key %d is not stored\n", m_read.key);
+				printf("The key %u is not stored\n", m_read.key);
 				flag = -1;
 			}else{
 				flag = ht_remove(hashtable, m_read.key);
@@ -215,7 +189,7 @@ void *connection_handler(void *socket_desc){
 		
 	}
 	puts("Client disconnected");
-			fflush(stdout);
+	fflush(stdout);
     /*else if(n == -1){
         perror("recv failed");
     }*/
@@ -225,4 +199,64 @@ void *connection_handler(void *socket_desc){
 
 
 
+int main(){
+	int fd, newfd, addrlen;
+	struct sockaddr_in addr;
+	int open = 1;
+	
+	
+	//OPEN FILE IN READ MODE
+	f = fopen("file.txt", "r");
+	if (f == NULL){
+		open = -1;
+	}	
 
+	
+	//Create socket
+	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) exit(1);
+	puts("Socket created");
+	
+	//Prepare the sockaddr_in structure
+	memset((void*)&addr, (int)'\0', sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr.sin_port = htons(9999);
+	
+	//Bind
+	if(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) exit(1);
+	puts("Bind done");
+	
+	//Listen
+	if(listen(fd,5) == -1)
+	exit(1);//error
+	
+	addrlen = sizeof(addr);
+	pthread_t thread_id;
+	
+	//CREATE HASH
+	hashtable = ht_create( 300 );
+	
+	//READ HASH FROM FILE
+	if(open == 1){
+		ht_read(hashtable,f);
+		fclose(f);
+	}
+	
+	//OPEN FILE TO WRITE
+	f = fopen("file.txt", "w");
+	
+	//RECIEVES SHUTDOWN SIGNAL 
+	signal(SIGINT, inthand);
+	
+	while( (newfd = accept(fd, (struct sockaddr*)&addr, &addrlen)) ){
+			
+		//puts("Connection accepted");
+		if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &newfd) < 0 ){
+            perror("could not create thread");
+            exit (1);
+        }
+        pthread_join(thread_id, NULL);
+        //puts("Thread created and handle");
+	}
+	exit(0);
+}

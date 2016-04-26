@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -10,7 +11,7 @@
 #include <string.h>
 #include <netdb.h>
 #include "storyserver.h"
-#define MAX_VALUES 10
+#define MAX_VALUES 100
 
 int kv_connect(char * kv_server_ip, int kv_server_port){
 	
@@ -46,7 +47,7 @@ void kv_close(int kv_descriptor){
 	close(kv_descriptor);
 }
 
-int kv_write(int kv_descriptor, int key, char * value, int value_length, int kv_overwrite){
+int kv_write(int kv_descriptor, uint32_t key, char * value, uint32_t value_length, int kv_overwrite){
 
 	message1 mensagem;
 	message1 mensagem2;
@@ -70,11 +71,11 @@ int kv_write(int kv_descriptor, int key, char * value, int value_length, int kv_
 	
 	//RECEIVE THE RESULT
 	if(-1 == read(kv_descriptor, &mensagem2, sizeof(mensagem2))){
-		printf("Erro read at kv_write para %s: \n", value);
+		printf("Error read at kv_write for %s: \n", value);
 		exit(1);//error
 	}		
 	if(mensagem2.type_msg == FAIL){
-		printf("FAIL ON WRITE CLIENT SIDE\n");
+		printf("FAIL ON WRITE CLIENT SIDE (OVERWRITE ISSUE)\n");
 		return -2;
 	}else{
 		return 0;
@@ -83,7 +84,7 @@ int kv_write(int kv_descriptor, int key, char * value, int value_length, int kv_
 	return -1;
 }
 
-int kv_read(int kv_descriptor, int key, char * value, int value_length){
+int kv_read(int kv_descriptor, uint32_t key, char * value, uint32_t value_length){
 	
 	message1 mensagem;
 	message1 mensagem2;
@@ -98,16 +99,16 @@ int kv_read(int kv_descriptor, int key, char * value, int value_length){
 	}
 	//RECEIVE THE RESULT
 	if(-1 == read(kv_descriptor, &mensagem2, sizeof(mensagem2))){
-		printf("Erro read at kv_read \n");
+		printf("Error read at kv_read \n");
 		exit(1);//errorr
 	}
 	//INTERPRET THE RESULT
 	if(mensagem2.type_msg == FAIL){
-		printf("FAIL ON READ CLIENT SIDE (OVERWRITE ISSUE)\n");
+		printf("FAIL ON READ CLIENT SIDE\n");
 		return -2;
 	}else{
 		if(-1 == read(kv_descriptor, b, value_length)){
-			printf("Erro: \n");
+			printf("Error: \n");
 			exit(1);//errorr
 		}
 		
@@ -120,7 +121,7 @@ int kv_read(int kv_descriptor, int key, char * value, int value_length){
 	return -1;
 }
 
-int kv_delete(int kv_descriptor, int key){
+int kv_delete(int kv_descriptor, uint32_t key){
 	
 	message1 mensagem;
 	message1 mensagem2;
@@ -181,7 +182,7 @@ char linha[100];
 
 	if(fork() == 0){
 			
-		int kv = kv_connect("127.0.0.1", 9000);
+		int kv = kv_connect("127.0.0.1", 9999);
 
 		for (int i = 0; i < MAX_VALUES; i +=2){
 			sprintf(linha, "%u", i);
@@ -190,7 +191,7 @@ char linha[100];
 		kv_close(kv);
 
 	}else{
-		int kv = kv_connect("127.0.0.1", 9000);
+		int kv = kv_connect("127.0.0.1", 9999);
 
 		for (int i = 1; i < MAX_VALUES; i +=2){
 			sprintf(linha, "%u", i);

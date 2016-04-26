@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE 500 /* Enable certain library functions (strdup) on linux.  See feature_test_macros(7) */
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
@@ -49,7 +50,7 @@ int ht_hash( hashtable_t *hashtable, char *key ) {
 }
 
 
-int ht_hash1(hashtable_t *hashtable, int a){
+uint32_t ht_hash1(hashtable_t *hashtable, uint32_t a){
     /*a = (a ^ 61) ^ (a >> 16);
     a = a + (a << 3);
     a = a ^ (a >> 4);
@@ -59,8 +60,8 @@ int ht_hash1(hashtable_t *hashtable, int a){
 }
 
 
-/* Create a key-value pair. */
-entry_t *ht_newpair( int key, char *value ) {
+//Create a pair
+entry_t *ht_newpair( uint32_t key, char *value ) {
 	entry_t *newpair;
 
 	if( ( newpair = malloc( sizeof( entry_t ) ) ) == NULL ) {
@@ -78,8 +79,8 @@ entry_t *ht_newpair( int key, char *value ) {
 	return newpair;
 }
 
-/* Insert a key-value pair into a hash table. */
-int ht_set( hashtable_t *hashtable, int key, char *value, int flag ) {
+//Insert a pair into a hash table
+int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag ) {
 	int bin = 0;
 	entry_t *newpair = NULL;
 	entry_t *next = NULL;
@@ -128,9 +129,9 @@ int ht_set( hashtable_t *hashtable, int key, char *value, int flag ) {
 	return 0;
 }
 
-/* Retrieve a key-value pair from a hash table. */
-char *ht_get( hashtable_t *hashtable, int key ) {
-	int bin = 0;
+//Retrieve a pair from a hash table
+char *ht_get( hashtable_t *hashtable, uint32_t key ) {
+	uint32_t bin = 0;
 	entry_t *pair;
 
 	//bin = ht_hash( hashtable, key );
@@ -154,37 +155,62 @@ char *ht_get( hashtable_t *hashtable, int key ) {
 	
 }
 
-//print the hash position
-char *ht_print( hashtable_t *hashtable, int key ) {
-	int bin = 0;
+//print the hash
+void ht_print( hashtable_t *hashtable) {
+	uint32_t bin = 0;
 	entry_t *pair;
 
 	//bin = ht_hash( hashtable, key );
-	bin = ht_hash1( hashtable, key );
 	
-	/* Step through the bin, looking for our value. */
-	pair = hashtable->table[ bin ];
-	printf("Position:%d", bin);
-	while( pair != NULL ) {
+	
+	for(bin = 0; bin < hashtable->size; bin++){
 		
-		printf(" ->[%d,%s]", pair->key, pair->value);
-		pair = pair->next;
-	}
-
-	/* Did we actually find anything? */
-	if( pair == NULL || key != pair->key ) {
-		printf("\n");
-		return NULL;
-
-	} else {
-		printf("\n");
-		return pair->value;
+		/* Step through the bin, looking for our value. */
+		pair = hashtable->table[ bin ];
+		if(pair != NULL){
+			printf("\n");
+			printf("Position:%u", bin);
+		}
+		while( pair != NULL ) {
+			
+			printf(" ->[%d,%s]", pair->key, pair->value);
+			pair = pair->next;
+		}
 	}
 	printf("\n");
 }
 
-int ht_remove(hashtable_t *hashtable, int key){
-	int bin = 0;
+//save the hash to a file
+void ht_save( hashtable_t *hashtable, FILE *f) {
+	uint32_t bin = 0;
+	entry_t *pair;
+
+	for(bin = 0; bin < hashtable->size; bin++){
+		
+		/* Step through the bin, looking for our value. */
+		pair = hashtable->table[ bin ];
+		while( pair != NULL ) {	
+			fprintf(f, "%u %s\n", pair->key, pair->value);
+			pair = pair->next;
+		}
+	}
+}
+
+//read the hash from a file
+void ht_read( hashtable_t *hashtable, FILE *f) {
+	uint32_t key = 0;
+	char *value;
+	char buff[256];
+	
+	while(fscanf(f, "%u" "%s", &key, buff) != EOF){
+		value = buff;
+		ht_set(hashtable, key, value, 0);
+	}
+}
+
+//remove one pair from the hash
+int ht_remove(hashtable_t *hashtable, uint32_t key){
+	uint32_t bin = 0;
 	int flag = -1;
 	entry_t *pair;
 	entry_t *aux;

@@ -7,7 +7,7 @@
 #define OVERWRITE 4
 
 typedef struct message1{
-	int key;
+	uint32_t key;
 	int type_msg;
-	int size;
+	uint32_t size;
 } message1;
