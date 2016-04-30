@@ -220,7 +220,7 @@ int main(){
 	memset((void*)&addr, (int)'\0', sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port = htons(9999);
+	addr.sin_port = htons(9000);
 	
 	//Bind
 	if(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) exit(1);

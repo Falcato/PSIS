@@ -11,11 +11,11 @@
 #include <string.h>
 #include <netdb.h>
 #include "storyserver.h"
-#define MAX_VALUES 100
+#define MAX_VALUES 10
 
 int kv_connect(char * kv_server_ip, int kv_server_port){
 	
-	int fd, n;
+	int fd, fd2, n;
 	struct sockaddr_in addr, ip_addr;
 	char ip[128];
 	
@@ -23,7 +23,7 @@ int kv_connect(char * kv_server_ip, int kv_server_port){
 	if(fd == -1){
 		printf("Erro: \n");
 		exit(1);//error
-	 }
+	}
 	 
 	//COPY AND TRANSLATE IP ADRESS
 	strcpy(ip, kv_server_ip);
@@ -38,8 +38,34 @@ int kv_connect(char * kv_server_ip, int kv_server_port){
 	if(n == -1){
 		printf("Erro: \n");
 		exit(1);//error
+	}
+	
+	char port[32];
+	
+	if(-1 == read(fd, port, sizeof(int))){
+		printf("Error\n");
+		exit(1);//error
+	}		 
+	
+	close(fd);
+	
+	
+	fd2 = socket(AF_INET,SOCK_STREAM,0);//TCP socket	
+	if(fd == -1){
+		printf("Erro: \n");
+		exit(1);//error
 	 }
-	return fd;
+	
+	int x = atoi(port);
+	addr.sin_port = htons(x);
+	
+	n = connect(fd2,(struct sockaddr*)&addr, sizeof(addr));
+	if(n == -1){
+		printf("Erro: \n");
+		exit(1);//error
+	}
+	
+	return fd2;
 }
 
 void kv_close(int kv_descriptor){
