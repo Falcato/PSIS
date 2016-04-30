@@ -19,12 +19,23 @@ hashtable_t *ht_create( int size );
 int ht_hash( hashtable_t *hashtable, char *key );
 uint32_t ht_hash1(hashtable_t *hashtable, uint32_t a);
 entry_t *ht_newpair( uint32_t key, char *value );
-int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag );
-char *ht_get( hashtable_t *hashtable, uint32_t key );
+
+//int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag);
+int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag, pthread_rwlock_t lock, pthread_rwlock_t lock2);
+
+//char *ht_get( hashtable_t *hashtable, uint32_t key );
+char *ht_get( hashtable_t *hashtable, uint32_t key, pthread_rwlock_t lock );
+
 void ht_print( hashtable_t *hashtable);
-void ht_save( hashtable_t *hashtable, FILE *f);
-void ht_read( hashtable_t *hashtable, FILE *f);
-int ht_remove(hashtable_t *hashtable, uint32_t key);
+
+//void ht_save( hashtable_t *hashtable, FILE *f);
+void ht_save( hashtable_t *hashtable, FILE *f, pthread_rwlock_t lock );
+
+//void ht_read( hashtable_t *hashtable, FILE *f);
+void ht_read( hashtable_t *hashtable, FILE *f, pthread_rwlock_t lock, pthread_rwlock_t lock2 );
+
+//int ht_remove(hashtable_t *hashtable, uint32_t key);
+int ht_remove(hashtable_t *hashtable, uint32_t key, pthread_rwlock_t lock, pthread_rwlock_t lock2);
 
 
 #endif

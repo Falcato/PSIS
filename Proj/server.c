@@ -25,6 +25,12 @@ hashtable_t *hashtable;
 //mutex global variable
 pthread_mutex_t mux;
 
+
+// read/write lock
+pthread_rwlock_t  rwlock ;
+pthread_rwlock_t  rwlock2 ;
+
+
 //signal global variable
 volatile sig_atomic_t stop;
 
@@ -35,7 +41,7 @@ FILE *f;
 void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
 	ht_print(hashtable);
-	ht_save(hashtable, f);
+	ht_save(hashtable, f, rwlock);
 	fclose(f);
     exit(2);
 }
@@ -75,16 +81,16 @@ void *connection_handler(void *socket_desc){
 			//bzero(buffer,128);	
 			
 			//MUTEX LOCK
-			pthread_mutex_lock(&mux);
+			//pthread_mutex_lock(&mux);
 			
 			if(m_read.type_msg == WRITE){
-				a = ht_set(hashtable, m_read.key, buf_value, 0);
+				a = ht_set(hashtable, m_read.key, buf_value, 0, rwlock, rwlock2);
 			}else{
-				a = ht_set(hashtable, m_read.key, buf_value, 1);
+				a = ht_set(hashtable, m_read.key, buf_value, 1, rwlock, rwlock2);
 			}
 		
 			//MUTEX UNLOCK
-			pthread_mutex_unlock(&mux);
+			//pthread_mutex_unlock(&mux);
 			
 			
 			//SEND THE RESULT
@@ -112,13 +118,13 @@ void *connection_handler(void *socket_desc){
 		if(m_read.type_msg == READ){
 			
 			//MUTEX LOCK
-			pthread_mutex_lock(&mux);
+			//pthread_mutex_lock(&mux);
 			
 			//Try to read the value from the hash
-			buf_value = ht_get( hashtable, m_read.key);
+			buf_value = ht_get( hashtable, m_read.key, rwlock);
 			
 			//MUTEX UNLOCK
-			pthread_mutex_unlock(&mux);
+			//pthread_mutex_unlock(&mux);
 			
 			//IF THE KEY DOESNT EXIST IN THE HASH
 			if( buf_value == NULL){
@@ -157,16 +163,16 @@ void *connection_handler(void *socket_desc){
 			int flag = 0;
 			
 			//MUTEX LOCK
-			pthread_mutex_lock(&mux);
+			//pthread_mutex_lock(&mux);
 			
-			if(ht_get(hashtable, m_read.key) == NULL){
+			if(ht_get(hashtable, m_read.key, rwlock) == NULL){
 				printf("The key %u is not stored\n", m_read.key);
 				flag = -1;
 			}else{
-				flag = ht_remove(hashtable, m_read.key);
+				flag = ht_remove(hashtable, m_read.key, rwlock, rwlock2);
 			}
 			//MUTEX UNLOCK
-			pthread_mutex_unlock(&mux);
+			//pthread_mutex_unlock(&mux);
 			
 			if(flag == 1){
 				m_write.type_msg = SUCCESS;
@@ -204,6 +210,8 @@ int main(){
 	struct sockaddr_in addr;
 	int open = 1;
 	
+	pthread_rwlock_init(&rwlock, NULL);	
+	pthread_rwlock_init(&rwlock2, NULL);	
 	
 	//OPEN FILE IN READ MODE
 	f = fopen("file.txt", "r");
@@ -238,7 +246,7 @@ int main(){
 	
 	//READ HASH FROM FILE
 	if(open == 1){
-		ht_read(hashtable,f);
+		ht_read(hashtable, f, rwlock, rwlock2);
 		fclose(f);
 	}
 	
