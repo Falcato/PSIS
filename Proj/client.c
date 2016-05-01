@@ -101,7 +101,7 @@ int kv_write(int kv_descriptor, uint32_t key, char * value, uint32_t value_lengt
 		exit(1);//error
 	}		
 	if(mensagem2.type_msg == FAIL){
-		printf("FAIL ON WRITE CLIENT SIDE (OVERWRITE ISSUE)\n");
+		printf("FAIL TO WRITE KEY[%u] - CLIENT SIDE (OVERWRITE ISSUE)\n", key);
 		return -2;
 	}else{
 		return 0;
@@ -130,18 +130,21 @@ int kv_read(int kv_descriptor, uint32_t key, char * value, uint32_t value_length
 	}
 	//INTERPRET THE RESULT
 	if(mensagem2.type_msg == FAIL){
-		printf("FAIL ON READ CLIENT SIDE\n");
+		printf("FAIL TO READ KEY[%u] - CLIENT SIDE\n", key);
 		return -2;
 	}else{
+		bzero(b, value_length);
 		if(-1 == read(kv_descriptor, b, value_length)){
 			printf("Error: \n");
 			exit(1);//errorr
 		}
 		
-		b[value_length]='\0';
+		//b[value_length-1]='\0';
+		b[mensagem2.size] = '\0';
 		value = b;
 		printf ("recebi:-------%s--------\n", value);
-		return 0;
+		//printf ("size:-------%d--------\n", mensagem2.size);
+		return mensagem2.size;
 	}
 
 	return -1;
@@ -165,10 +168,10 @@ int kv_delete(int kv_descriptor, uint32_t key){
 		exit(1);//errorr
 	}
 	if(mensagem2.type_msg == FAIL){
-		printf("KEY TO DELETE ISNT STORED\n");
+		printf("KEY[%u] TO DELETE ISNT STORED\n", key);
 		return -1;
 	}else{
-		printf("KEY-VALUE DELETED\n");
+		printf("KEY[%u]-VALUE DELETED\n", key);
 		return 0;
 	}
 	return 0;
@@ -202,7 +205,7 @@ int main(){
 	
 	exit(0);*/	
 	
-
+/*
 char linha[100];
 
 
@@ -236,5 +239,54 @@ char linha[100];
 		kv_close(kv);
 
 	}
-	exit(0);
+	exit(0);*/
+
+
+	char linha[100];
+	int kv = kv_connect("127.0.0.1", 9999);
+
+	for (uint32_t i = 0; i < MAX_VALUES; i ++){
+		sprintf(linha, "%u", i);
+		kv_write(kv, i , linha, strlen(linha)+1, 0);
+	}
+
+	printf("press enter to read values\n");
+	getchar();
+	for (uint32_t i = 0; i < MAX_VALUES; i ++){
+		if(kv_read(kv, i , linha, 1000) == 0){
+			printf ("key - %10u value %s", i, linha);
+		}
+	}
+
+	printf("press enter to delete even values\n");
+	getchar();
+	for (uint32_t i = 0; i < MAX_VALUES; i +=2){
+		kv_delete(kv, i);
+	}
+
+	printf("press enter to read values\n");
+	getchar();
+	for (uint32_t i = 0; i < MAX_VALUES; i ++){
+		if(kv_read(kv, i , linha, 1000) == 0){
+			printf ("key - %10u value %s", i, linha);
+		}
+	}
+	printf("press enter to write values\n");
+	getchar();
+	for (uint32_t i = 0; i < MAX_VALUES; i ++){
+		sprintf(linha, "%u", i*10);
+		kv_write(kv, i , linha, strlen(linha)+1, 0); /* will not overwrite*/
+	}
+
+	printf("press enter to read new values\n");
+	getchar();
+	for (uint32_t i = 0; i < MAX_VALUES; i ++){
+		if(kv_read(kv, i , linha, 1000) == 0){
+			printf ("key - %10u value %s", i, linha);
+		}
+	}
+	kv_close(kv);
+	
+	
+	
 }

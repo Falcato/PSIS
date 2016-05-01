@@ -27,8 +27,8 @@ pthread_mutex_t mux;
 
 
 // read/write lock
-pthread_rwlock_t  rwlock ;
-pthread_rwlock_t  rwlock2 ;
+pthread_rwlock_t  rwlock;
+pthread_rwlock_t  rwlock2;
 
 
 //signal global variable
@@ -41,7 +41,7 @@ FILE *f;
 void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
 	ht_print(hashtable);
-	ht_save(hashtable, f, rwlock);
+	ht_save(hashtable, f);
 	fclose(f);
     exit(2);
 }
@@ -84,9 +84,9 @@ void *connection_handler(void *socket_desc){
 			//pthread_mutex_lock(&mux);
 			
 			if(m_read.type_msg == WRITE){
-				a = ht_set(hashtable, m_read.key, buf_value, 0, rwlock, rwlock2);
+				a = ht_set(hashtable, m_read.key, buf_value, 0);
 			}else{
-				a = ht_set(hashtable, m_read.key, buf_value, 1, rwlock, rwlock2);
+				a = ht_set(hashtable, m_read.key, buf_value, 1);
 			}
 		
 			//MUTEX UNLOCK
@@ -121,7 +121,7 @@ void *connection_handler(void *socket_desc){
 			//pthread_mutex_lock(&mux);
 			
 			//Try to read the value from the hash
-			buf_value = ht_get( hashtable, m_read.key, rwlock);
+			buf_value = ht_get( hashtable, m_read.key);
 			
 			//MUTEX UNLOCK
 			//pthread_mutex_unlock(&mux);
@@ -139,8 +139,8 @@ void *connection_handler(void *socket_desc){
 				m_write.type_msg = SUCCESS;
 				m_write.key = m_read.key;
 				
-				strcpy(buffer, buf_value);
-				m_write.size = strlen(buffer);
+				strcpy(buffer, buf_value);// verificar se é feito atraves de strcpy e depois strlen
+				m_write.size = strlen(buffer);//ou se se deve fazer strncpy com n a ser o numero de value_length
 				
 				//SEND THE RESULT 
 				if(-1 == write(newfd, &m_write, sizeof(m_write))){
@@ -165,11 +165,11 @@ void *connection_handler(void *socket_desc){
 			//MUTEX LOCK
 			//pthread_mutex_lock(&mux);
 			
-			if(ht_get(hashtable, m_read.key, rwlock) == NULL){
+			if(ht_get(hashtable, m_read.key) == NULL){
 				printf("The key %u is not stored\n", m_read.key);
 				flag = -1;
 			}else{
-				flag = ht_remove(hashtable, m_read.key, rwlock, rwlock2);
+				flag = ht_remove(hashtable, m_read.key);
 			}
 			//MUTEX UNLOCK
 			//pthread_mutex_unlock(&mux);
@@ -246,7 +246,7 @@ int main(){
 	
 	//READ HASH FROM FILE
 	if(open == 1){
-		ht_read(hashtable, f, rwlock, rwlock2);
+		ht_read(hashtable, f);
 		fclose(f);
 	}
 	

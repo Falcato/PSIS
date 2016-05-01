@@ -8,6 +8,9 @@
 #include <pthread.h>
 #include "hash.h"
 
+extern pthread_rwlock_t  rwlock;
+extern pthread_rwlock_t  rwlock2;
+
 /* Create a new hashtable. */
 hashtable_t *ht_create( int size ) {
 
@@ -81,7 +84,7 @@ entry_t *ht_newpair( uint32_t key, char *value ) {
 }
 
 //Insert a pair into a hash table
-int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag, pthread_rwlock_t lock, pthread_rwlock_t lock2) {
+int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
 	int bin = 0;
 	entry_t *newpair = NULL;
 	entry_t *next = NULL;
@@ -93,15 +96,15 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag, pthread
 	next = hashtable->table[ bin ];
 	
 	//READ LOCK
-	pthread_rwlock_rdlock(&lock);
+	pthread_rwlock_rdlock(&rwlock);
 	
 	while( next != NULL && key != next->key ) {
 		last = next;
 		next = next->next;
 	}
-	
+	if(key ==0) printf("BBBB\n");
 	//READ UNLOCK
-	pthread_rwlock_unlock(&lock);
+	pthread_rwlock_unlock(&rwlock);
 	
 	/* There's already a pair.  Let's replace that string. */
 	if( next != NULL && key == next->key ) {
@@ -109,13 +112,13 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag, pthread
 		if(flag == 1){
 			
 			//WRITE LOCK
-			pthread_rwlock_wrlock(&lock2);
+			pthread_rwlock_wrlock(&rwlock2);
 				
 			free( next->value );
 			next->value = strdup( value );
 			
 			//WRITE UNLOCK
-			pthread_rwlock_unlock(&lock2);
+			pthread_rwlock_unlock(&rwlock2);
 			
 			return 2;
 		}else{
@@ -129,41 +132,46 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag, pthread
 		/* We're at the start of the linked list in this bin. */
 		if( next == hashtable->table[ bin ] ) {
 			//WRITE LOCK
-			pthread_rwlock_wrlock(&lock2);
+			pthread_rwlock_wrlock(&rwlock2);
 			
 			newpair->next = next;
 			hashtable->table[ bin ] = newpair;
 			
 			//WRITE UNLOCK
-			pthread_rwlock_unlock(&lock2);
-
+			pthread_rwlock_unlock(&rwlock2);
+			
+			return 0;
 		/* We're at the end of the linked list in this bin. */
 		}else if( next == NULL ){
 			//WRITE LOCK
-			pthread_rwlock_wrlock(&lock2);
+			pthread_rwlock_wrlock(&rwlock2);
 
 			last->next = newpair;
+			newpair->next = NULL;
 			
 			//WRITE UNLOCK
-			pthread_rwlock_unlock(&lock2);
-
+			pthread_rwlock_unlock(&rwlock2);
+			
+			return 0;
 		/* We're in the middle of the list. */
 		}else{
 			//WRITE LOCK
-			pthread_rwlock_wrlock(&lock2);
+			pthread_rwlock_wrlock(&rwlock2);
 			
 			newpair->next = next;
 			last->next = newpair;
 			
 			//WRITE UNLOCK
-			pthread_rwlock_unlock(&lock2);
+			pthread_rwlock_unlock(&rwlock2);
+			
+			return 0;
 		}
 	}
 	return 0;
 }
 
 //Retrieve a pair from a hash table
-char *ht_get( hashtable_t *hashtable, uint32_t key, pthread_rwlock_t lock ) {
+char *ht_get( hashtable_t *hashtable, uint32_t key ) {
 	uint32_t bin = 0;
 	entry_t *pair;
 
@@ -175,14 +183,15 @@ char *ht_get( hashtable_t *hashtable, uint32_t key, pthread_rwlock_t lock ) {
 	printf("Position:%d", bin);
 	
 	//READ LOCK
-	pthread_rwlock_rdlock(&lock);
+	pthread_rwlock_rdlock(&rwlock);
 	
 	while( pair != NULL && key != pair->key ) {
+		printf(" ------------------->[%d,%s]\n", pair->key, pair->value);
 		pair = pair->next;
 	}
 
 	//READ UNLOCK
-	pthread_rwlock_unlock(&lock);
+	pthread_rwlock_unlock(&rwlock);
 
 	/* Did we actually find anything? */
 	if( pair == NULL || key != pair->key ) {
@@ -221,7 +230,7 @@ void ht_print( hashtable_t *hashtable) {
 }
 
 //save the hash to a file
-void ht_save( hashtable_t *hashtable, FILE *f, pthread_rwlock_t lock ) {
+void ht_save( hashtable_t *hashtable, FILE *f ) {
 	uint32_t bin = 0;
 	entry_t *pair;
 
@@ -231,7 +240,7 @@ void ht_save( hashtable_t *hashtable, FILE *f, pthread_rwlock_t lock ) {
 		pair = hashtable->table[ bin ];
 		
 		//READ LOCK
-		pthread_rwlock_rdlock(&lock);
+		pthread_rwlock_rdlock(&rwlock);
 		
 		while( pair != NULL ) {	
 			fprintf(f, "%u %s\n", pair->key, pair->value);
@@ -239,30 +248,78 @@ void ht_save( hashtable_t *hashtable, FILE *f, pthread_rwlock_t lock ) {
 		}
 		
 		//READ UNLOCK
-		pthread_rwlock_unlock(&lock);
+		pthread_rwlock_unlock(&rwlock);
 		
 	}
 }
 
 //read the hash from a file
-void ht_read( hashtable_t *hashtable, FILE *f, pthread_rwlock_t lock, pthread_rwlock_t lock2) {
+void ht_read( hashtable_t *hashtable, FILE *f) {
 	uint32_t key = 0;
 	char *value;
 	char buff[256];
 	
 	while(fscanf(f, "%u" "%s", &key, buff) != EOF){
 		value = buff;
-		ht_set(hashtable, key, value, 0, lock, lock2);
+		ht_set(hashtable, key, value, 0);
 	}
 }
 
 //remove one pair from the hash
-int ht_remove(hashtable_t *hashtable, uint32_t key, pthread_rwlock_t lock, pthread_rwlock_t lock2){
+int ht_remove(hashtable_t *hashtable, uint32_t key){
 	uint32_t bin = 0;
 	int flag = -1;
-	entry_t *pair;
-	entry_t *aux;
+	entry_t *next;
+	entry_t *last;
+	//entry_t *aux;
+	//entry_t *pair;
 
+
+
+	bin = ht_hash1( hashtable, key );
+
+	next = hashtable->table[ bin ];	
+	last = next;
+
+	//READ LOCK
+	pthread_rwlock_rdlock(&rwlock);
+	
+	while(key != next->key ) {
+		printf("AAA\n");
+		last = next;
+		next = next->next;
+	}
+	
+	//READ UNLOCK
+	pthread_rwlock_unlock(&rwlock);
+	
+	
+	if(next->key == key){
+		//WRITE LOCK
+		pthread_rwlock_wrlock(&rwlock2);	
+	
+		//ITS THE ONLY ONE IN THAT ENTRY
+		if(last == next && next->next == NULL){
+			free(next->value);
+			free(next->next);
+			free(hashtable->table[bin]);
+			hashtable->table[bin] = NULL;
+			flag = 1;
+			return flag;
+		}
+		
+		last->next = next->next;
+		free(next->value);
+		free(next->next);
+		free(next);
+
+		flag = 1;
+	
+	}
+		//WRITE UNLOCK
+		pthread_rwlock_unlock(&rwlock2);	
+	
+/*
 	//bin = ht_hash( hashtable, key );
 	bin = ht_hash1( hashtable, key );	
 	
@@ -273,26 +330,31 @@ int ht_remove(hashtable_t *hashtable, uint32_t key, pthread_rwlock_t lock, pthre
 	
 	while( pair != NULL ) {
 		//WRITE LOCK
-		pthread_rwlock_wrlock(&lock2);
+		pthread_rwlock_wrlock(&rwlock2);
 		
 		if(pair->key == key){
 			aux->next = pair->next;
 			free(pair->value);
 			free(pair);
+			
 			flag = 1;
-		}		
+			return flag;
+		}
+		
 		//WRITE UNLOCK
-		pthread_rwlock_unlock(&lock2);
+		pthread_rwlock_unlock(&rwlock2);
 		
 		//READ LOCK
-		pthread_rwlock_rdlock(&lock);
+		pthread_rwlock_rdlock(&rwlock);
 		
 		aux = pair;
 		pair = pair->next;
 		
 		//READ UNLOCK
-		pthread_rwlock_unlock(&lock);
+		pthread_rwlock_unlock(&rwlock);
 		
 	}
+*/
+	
 	return flag;
 }
