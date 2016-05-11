@@ -36,7 +36,7 @@ int kv_connect(char * kv_server_ip, int kv_server_port){
 	
 	n = connect(fd,(struct sockaddr*)&addr, sizeof(addr));
 	if(n == -1){
-		printf("Erro: \n");
+		printf("Erro on front server\n");
 		exit(1);//error
 	}
 	
@@ -179,69 +179,7 @@ int kv_delete(int kv_descriptor, uint32_t key){
 
 
 int main(){
-/*
-	int a = kv_connect("127.0.0.1", 9000);
-	char e[] = "millll";
-	int c = kv_write(a, 1000, e, strlen(e), 0);
-	kv_close(a);
 	
-	int q = kv_connect("127.0.0.1", 9000);
-	char m[] = "cemm";
-	int l = kv_write(q, 4, m, strlen(m), 0);
-	kv_close(q);
-	
-	
-	int x = kv_connect("127.0.0.1", 9000);
-	char *d;
-	int b = kv_read(x, 1000, d, strlen(e));
-	kv_close(x);
-	
-	
-
-	int y = kv_connect("127.0.0.1", 9000);
-	char *z;
-	int t = kv_read(y, 4, z, strlen(m));
-	
-	
-	exit(0);*/	
-	
-/*
-char linha[100];
-
-
-	if(fork() == 0){
-			
-		int kv = kv_connect("127.0.0.1", 9999);
-
-		for (int i = 0; i < MAX_VALUES; i +=2){
-			sprintf(linha, "%u", i);
-			kv_write(kv, i , linha, strlen(linha)+1, 0);
-		}
-		kv_close(kv);
-
-	}else{
-		int kv = kv_connect("127.0.0.1", 9999);
-
-		for (int i = 1; i < MAX_VALUES; i +=2){
-			sprintf(linha, "%u", i);
-			kv_write(kv, i , linha, strlen(linha)+1, 0);
-		}
-
-
-		
-		printf("writing values\n");
-		for (int i = 1; i < MAX_VALUES; i +=2){
-			sprintf(linha, "%u", i);
-			kv_write(kv, i , linha, strlen(linha)+1, 0);
-		}
-			
-		
-		kv_close(kv);
-
-	}
-	exit(0);*/
-
-
 	char linha[100];
 	int kv = kv_connect("127.0.0.1", 9999);
 
@@ -286,7 +224,4 @@ char linha[100];
 		}
 	}
 	kv_close(kv);
-	
-	
-	
 }

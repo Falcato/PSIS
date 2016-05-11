@@ -50,15 +50,16 @@ void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
 	//PRINT THE HASH TO TERMINAL
 	ht_print(hashtable);
-	
+
 	//OPEN FILE TO WRITE
 	f = fopen("file.txt", "w");
-	
+
 	//SAVE THE HASH TO THE FILE
 	ht_save(hashtable, f);
-	
+
 	//CLOSE THE FILE
 	fclose(f);
+
     exit(2);
 }
 
@@ -100,18 +101,18 @@ void *connection_handler(void *socket_desc){
 		
 		//IF TYPE IS WRITE OR OVERWRITE
 		if( m_read.type_msg == WRITE  || m_read.type_msg == OVERWRITE){
-			
+			//char * newBuffewr = malloc(m_read.size);
 			//RECEIVE THE CONTENT TO SAVE IN THE HASH
 			read(newfd, buffer, m_read.size);
 			buf_value = buffer;
+			//printf("recebi:******%s*****\n", newbuffer);
 			printf("recebi:******%s*****\n", buffer);
-			//bzero(buffer,128);	
 			
-			//MUTEX LOCK
-			//pthread_mutex_lock(&mux);
+
 			
 			if(m_read.type_msg == WRITE){
 				a = ht_set(hashtable, m_read.key, buf_value, 0);
+				//a = ht_set(hashtable, m_read.key, newbuffer, m_read.size, 0)
 			}else{
 				a = ht_set(hashtable, m_read.key, buf_value, 1);
 			}
@@ -124,7 +125,7 @@ void *connection_handler(void *socket_desc){
 			if(a == -2){
 				m_write.type_msg = FAIL;
 				m_write.key = m_read.key;
-				
+				//free(newbuffer)
 				if( -1 == write(newfd, &m_write, sizeof(m_write)) ){
 					printf("Erro: \n");
 					exit(1);//error
@@ -254,7 +255,7 @@ void *FIFO_handler(){
 	int fda;
     /* open, read, and display the message from the FIFO */
     fda = open(myFIFO, O_RDWR);
-    printf("aaa\n");
+
     while(1){
 		read(fda, buf, 128);
 		
@@ -262,9 +263,16 @@ void *FIFO_handler(){
 			close(fda);
 			//unlink(myFIFO);
 			printf("\nRECEIVED SHIT DOWN SIGNAL\n");
+
+			
 			ht_print(hashtable);
+			
+			//OPEN FILE TO WRITE
+			f = fopen("file.txt", "w");
 			ht_save(hashtable, f);
+
 			fclose(f);
+
 			exit(2);   
 		}
 	}
