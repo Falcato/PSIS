@@ -102,8 +102,10 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
 		last = next;
 		next = next->next;
 	}
-	if(key ==0) printf("BBBB\n");
+	
 	//READ UNLOCK
+	
+	//lck(&rwlock2)
 	pthread_rwlock_unlock(&rwlock);
 	
 	/* There's already a pair.  Let's replace that string. */
@@ -243,7 +245,7 @@ void ht_save( hashtable_t *hashtable, FILE *f ) {
 		pthread_rwlock_rdlock(&rwlock);
 		
 		while( pair != NULL ) {	
-			fprintf(f, "%u %s\n", pair->key, pair->value);
+			fprintf(f, "%s %u %s\n", "rd", pair->key, pair->value);
 			pair = pair->next;
 		}
 		
@@ -258,10 +260,22 @@ void ht_read( hashtable_t *hashtable, FILE *f) {
 	uint32_t key = 0;
 	char *value;
 	char buff[256];
+	char instr[4];
 	
-	while(fscanf(f, "%u" "%s", &key, buff) != EOF){
-		value = buff;
-		ht_set(hashtable, key, value, 0);
+	while(fscanf(f, "%s" "%u" "%s",instr, &key, buff) != EOF){
+		if(strcmp("rd", instr)){
+			value = buff;
+			ht_set(hashtable, key, value, 0);
+		}else if(strcmp("wr0", instr)){
+			value = buff;
+			ht_set(hashtable, key, value, 0);
+		}else if(strcmp("wr1", instr)){
+			value = buff;
+			ht_set(hashtable, key, value, 1);
+		}else if(strcmp("rm", instr)){
+			ht_remove(hashtable, key);
+		}
+		
 	}
 }
 
@@ -280,12 +294,11 @@ int ht_remove(hashtable_t *hashtable, uint32_t key){
 
 	next = hashtable->table[ bin ];	
 	last = next;
-
+//passar write lock para tudo 
 	//READ LOCK
 	pthread_rwlock_rdlock(&rwlock);
 	
 	while(key != next->key ) {
-		printf("AAA\n");
 		last = next;
 		next = next->next;
 	}

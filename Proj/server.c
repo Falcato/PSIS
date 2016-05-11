@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -16,6 +18,7 @@
 #include "hash.h"
 #include "storyserver.h" 
 
+
 //the thread function
 void *connection_handler(void *);
 
@@ -25,6 +28,8 @@ hashtable_t *hashtable;
 //mutex global variable
 pthread_mutex_t mux;
 
+//log counter
+int x = 0;
 
 // read/write lock
 pthread_rwlock_t  rwlock;
@@ -37,11 +42,22 @@ volatile sig_atomic_t stop;
 //FILE global variable
 FILE *f;
 
+//FIFO global variable
+char * myFIFO = "/tmp/myfifo";
+
 //shutdown signal handler
 void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
+	//PRINT THE HASH TO TERMINAL
 	ht_print(hashtable);
+	
+	//OPEN FILE TO WRITE
+	f = fopen("file.txt", "w");
+	
+	//SAVE THE HASH TO THE FILE
 	ht_save(hashtable, f);
+	
+	//CLOSE THE FILE
 	fclose(f);
     exit(2);
 }
@@ -55,6 +71,17 @@ void *connection_handler(void *socket_desc){
 	char buffer[128];
 	char * buf_value;
 	message1 m_read, m_write;
+	
+	if(x == 100){
+		//OPEN FILE TO WRITE
+		f = fopen("file.txt", "w");
+		
+		//SAVE THE HASH TO THE FILE
+		ht_save(hashtable, f);
+		
+		//CLOSE THE FILE
+		fclose(f);
+	}
 	
 	while(read(newfd, &m_read, sizeof(m_read)) > 0){ 
 		
@@ -103,9 +130,21 @@ void *connection_handler(void *socket_desc){
 					exit(1);//error
 				}
 			}else{
+				//OPEN FILE TO APPEND
+				f = fopen("file.txt", "a");
+				
+				//WRITE LOG MESSAGE TO FILE		
+				if(m_read.type_msg == WRITE ){
+					fprintf(f, "%s %u %s\n", "wr0", m_read.key, buffer);
+				}else{
+					fprintf(f, "%s %u %s\n", "wr1", m_read.key, buffer);
+				}
+				x++;
+				fclose(f);
+				
 				m_write.type_msg = SUCCESS;
 				m_write.key = m_read.key;
-				
+		
 				if( -1 == write(newfd, &m_write, sizeof(m_write)) ){
 					printf("Erro: \n");
 					exit(1);//error
@@ -175,6 +214,13 @@ void *connection_handler(void *socket_desc){
 			//pthread_mutex_unlock(&mux);
 			
 			if(flag == 1){
+				//OPEN FILE TO APPEND
+				f = fopen("file.txt", "a");
+				//WRITE LOG MESSAGE TO FILE		
+				fprintf(f, "%s %u %s\n", "rm", m_read.key, "remove");
+				x++;
+				fclose(f);
+				
 				m_write.type_msg = SUCCESS;
 				m_write.key = m_read.key;
 				if(-1 == write(newfd, &m_write, sizeof(m_write)) ){
@@ -203,7 +249,26 @@ void *connection_handler(void *socket_desc){
     return 0;
 } 
 
-
+void *FIFO_handler(){
+	char buf[128];
+	int fda;
+    /* open, read, and display the message from the FIFO */
+    fda = open(myFIFO, O_RDWR);
+    printf("aaa\n");
+    while(1){
+		read(fda, buf, 128);
+		
+		if( strcmp(buf, "quit\n") == 0){
+			close(fda);
+			//unlink(myFIFO);
+			printf("\nRECEIVED SHIT DOWN SIGNAL\n");
+			ht_print(hashtable);
+			ht_save(hashtable, f);
+			fclose(f);
+			exit(2);   
+		}
+	}
+}
 
 int main(){
 	int fd, newfd, addrlen;
@@ -240,6 +305,7 @@ int main(){
 	
 	addrlen = sizeof(addr);
 	pthread_t thread_id;
+	pthread_t thread_id2;
 	
 	//CREATE HASH
 	hashtable = ht_create( 300 );
@@ -250,11 +316,12 @@ int main(){
 		fclose(f);
 	}
 	
-	//OPEN FILE TO WRITE
-	f = fopen("file.txt", "w");
-	
 	//RECIEVES SHUTDOWN SIGNAL 
 	signal(SIGINT, inthand);
+	
+	
+	pthread_create( &thread_id2 , NULL ,  FIFO_handler , NULL);
+	
 	
 	while( (newfd = accept(fd, (struct sockaddr*)&addr, &addrlen)) ){
 			

@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -24,10 +26,21 @@ pthread_t thread_id2;
 //signal global variable
 volatile sig_atomic_t stop;
 
+
+
 //shutdown signal handler
 void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
+	char * myFIFO = "/tmp/myfifo";
+	int fd1;	
+	/* create the FIFO (named pipe) */
+	mkfifo(myFIFO, 0666);
 
+	/* write to the FIFO */
+	fd1 = open(myFIFO, O_RDWR);
+	write(fd1, "quit\n", sizeof("quit\n"));
+	close(fd1);
+	
     exit(2);
 }
 
@@ -83,12 +96,24 @@ void *keyboard_handler(){
 		
 		if(read(0, buf, 32) > 0){
 			if(strcmp(buf,"quit\n") == 0){
+				int fd1;
+				char * myFIFO = "/tmp/myfifo";
+				printf("AA\n");
+		
+				/* create the FIFO (named pipe) */
+				mkfifo(myFIFO, 0666);
+
+				/* write to the FIFO */
+				fd1 = open(myFIFO, O_RDWR);
+				printf("AA\n");
+				write(fd1, buf, sizeof(buf));
+				close(fd1);
+				
 				bzero(buf, 32);
 				exit(0);
 			}
         }
 		bzero(buf, 32);
-		
 	}
 }
 
@@ -113,3 +138,14 @@ int main(){
 	
 	exit(0);
 }
+/*
+TODO
+
+VERIFICAR NOVAMENTE OS LOCKS DE ACORDO COM A PROCURA ASSOCIADA A UMA ESCRITA OU DELETE
+FAZER O ALGORITMO DE DETECÇAO DE SAIDA, FRONT ESCREVE IMPAR E DATA ESCREVE PARES NO FIFO->check (FALTA IMPLEMENTAR PARA OS SERVERS)
+FAZERF CTRL+C NO FRONT SERVER PARA ENVIAR MENSAGEM DE SAIDA PARA A FIFO->check
+FAZERF CTRL+C NO DATA SERVER PARA ENVIAR MENSAGEM DE SAIDA PARA A FIFO->acho que nao e suposto
+FAZER BACKUP QUANDO SAI PELA FIFO (DATA)->check
+OPTIMIZAR BACKUP (A CADA 100 INSTRUÇOES APAGAR LOG E COPIAR A HASH)->check
+OPTIMIZAR ALOCAÇAO E FREES
+*/
