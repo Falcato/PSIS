@@ -41,6 +41,7 @@ void inthand(int signum) {
 	fd1 = open(fifo_name1, O_RDWR);
 	strcpy(msg,"quit");
 	write(fd1, msg, strlen(msg)+1);
+	sleep(2);
 	//close(fd1);
 	
     exit(2);
@@ -91,7 +92,7 @@ void *keyboard_handler(){
 	char buf2[32];
 	char msg[32];
 	bzero(buf2, 32);
-    //OPEN FIFOS TO READ AND WRITE
+    //OPEN FIFO TO READ AND WRITE
     int s2c = open(fifo_name1, O_RDWR);
     
 	//RECIEVES SHUTDOWN SIGNAL 
@@ -104,7 +105,8 @@ void *keyboard_handler(){
 				
 				strcpy(msg,"quit");
 				write(s2c, msg, strlen(msg)+1);
-				
+				printf("-----%s-----\n", msg);
+				sleep(2);
 				exit(0);
 			}
         }
@@ -116,7 +118,7 @@ void *FIFO_handler(){
     int c2s, s2c, c=0, i;
 	char msg[80], buf[10];
     pid_t id;
-    struct stat st;
+    struct stat st;		
         // CREATE FIFOS IF THEY DONT EXIST
     if (stat(fifo_name1, &st) != 0)
         mkfifo(fifo_name1, 0666);
@@ -139,7 +141,7 @@ void *FIFO_handler(){
     while (1){
 
 		//READ FROM THE FIFO
-		i = read(c2s, buf, 10);
+		i = read(c2s, buf, sizeof(char)*10);
 		
 		if ( i > 0){
 			//printf("1 received: %s \n", buf);
@@ -149,7 +151,7 @@ void *FIFO_handler(){
 			write(s2c, msg, strlen(msg)+1);
 		}
 		
-		sleep(1);
+		sleep(2);
 		c++;    
 		if (c>6){
 			//WAITS 5SEC THEN REBOOTS THE SERVER
@@ -202,12 +204,13 @@ int main(){
 TODO
 
 VERIFICAR NOVAMENTE OS LOCKS DE ACORDO COM A PROCURA ASSOCIADA A UMA ESCRITA OU DELETE->done confirmar que e correcto
-FAZER O ALGORITMO DE DETECÇAO DE SAIDA, FRONT ESCREVE IMPAR E DATA ESCREVE PARES NO FIFO->check
+FAZER O ALGORITMO DE DETECÇAO DE SAIDA, FRONT ESCREVE IMPAR E DATA ESCREVE PARES NO FIFO->check 
 FAZERF CTRL+C NO FRONT SERVER PARA ENVIAR MENSAGEM DE SAIDA PARA A FIFO->check
 FAZERF CTRL+C NO DATA SERVER PARA ENVIAR MENSAGEM DE SAIDA PARA A FIFO->acho que nao e suposto
 FAZER BACKUP QUANDO SAI PELA FIFO (DATA)->check
 OPTIMIZAR BACKUP (A CADA 100 INSTRUÇOES APAGAR LOG E COPIAR A HASH)->check
-ALOCAÇAO E FREES
 
-VERIFICAR O WRITE DO KEYBOARD HANDLER
+-------->FAZER ALOCAÇAO E FREES<-----------------
+-------->FAULT TOLERANCE (TESTAR VARIAS VEZES)<-----------------
+
 */
