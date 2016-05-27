@@ -1,5 +1,3 @@
-#define _XOPEN_SOURCE 500 /* Enable certain library functions (strdup) on linux.  See feature_test_macros(7) */
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -63,9 +61,8 @@ uint32_t ht_hash1(hashtable_t *hashtable, uint32_t a){
     return a % hashtable->size;
 }
 
-
 //Create a pair
-entry_t *ht_newpair( uint32_t key, char *value ) {
+entry_t *ht_newpair( uint32_t key, char *value, uint32_t size ) {
 	entry_t *newpair;
 
 	if( ( newpair = malloc( sizeof( entry_t ) ) ) == NULL ) {
@@ -73,11 +70,12 @@ entry_t *ht_newpair( uint32_t key, char *value ) {
 	}
 
 	newpair->key = key;
+	newpair->size = size;
 		
-	//if( ( newpair->value = value  ) == NULL ) {
-	if( ( newpair->value = strdup(value)  ) == NULL ) {
+	if( ( newpair->value = value  ) == NULL )
+	/*if( ( newpair->value = strdup(value)  ) == NULL ) {
 		return NULL;
-	}
+	}*/
 
 	newpair->next = NULL;
 
@@ -85,13 +83,12 @@ entry_t *ht_newpair( uint32_t key, char *value ) {
 }
 
 //Insert a pair into a hash table
-int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
+int ht_set( hashtable_t *hashtable, uint32_t key, char *value, uint32_t size, int flag) {
 	int bin = 0;
 	entry_t *newpair = NULL;
 	entry_t *next = NULL;
 	entry_t *last = NULL;
 
-	//bin = ht_hash( hashtable, key );
 	bin = ht_hash1( hashtable, key );
 
 	next = hashtable->table[ bin ];
@@ -105,16 +102,18 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
 	}
 	
 	
-	/* There's already a pair.  Let's replace that string. */
+	//Look for a pair with the same key
 	if( next != NULL && key == next->key ) {
 		
+		//If a pair is found and its an overwrite operation, replaces the value
 		if(flag == 1){
 			
 			//WRITE LOCK
 			pthread_rwlock_wrlock(&rwlock2);
 				
 			free( next->value );
-			next->value = strdup( value );
+			next->value = value;
+			next->size = size;
 			
 			//WRITE UNLOCK
 			pthread_rwlock_unlock(&rwlock2);
@@ -124,11 +123,11 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
 			return -2;
 		}
 
-	/* Nope, could't find it.  Time to grow a pair. */
+	//There is no pair with the same key. Creates a new pair.
 	}else{
-		newpair = ht_newpair( key, value );
+		newpair = ht_newpair( key, value, size );
 
-		/* We're at the start of the linked list in this bin. */
+		//Start of the list for this position
 		if( next == hashtable->table[ bin ] ) {
 			
 			//WRITE LOCK
@@ -144,7 +143,8 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
 			pthread_rwlock_unlock(&rwlock);
 				
 			return 0;
-		/* We're at the end of the linked list in this bin. */
+			
+		//End of the list for this position
 		}else if( next == NULL ){
 			//WRITE LOCK
 			//pthread_rwlock_wrlock(&rwlock2);
@@ -159,7 +159,8 @@ int ht_set( hashtable_t *hashtable, uint32_t key, char *value, int flag) {
 			pthread_rwlock_unlock(&rwlock);
 			
 			return 0;
-		/* We're in the middle of the list. */
+			
+		// Middle of the list
 		}else{
 			//WRITE LOCK
 			//pthread_rwlock_wrlock(&rwlock2);
@@ -183,16 +184,16 @@ char *ht_get( hashtable_t *hashtable, uint32_t key ) {
 	uint32_t bin = 0;
 	entry_t *pair;
 
-	//bin = ht_hash( hashtable, key );
+	
 	bin = ht_hash1( hashtable, key );
 	
-	/* Step through the bin, looking for our value. */
 	pair = hashtable->table[ bin ];
 	printf("Position:%d", bin);
 	
 	//READ LOCK1
 	pthread_rwlock_rdlock(&rwlock);
 	
+	//Search the list in this position for a pair the pretended key
 	while( pair != NULL && key != pair->key ) {
 		printf(" ------------------->[%d,%s]\n", pair->key, pair->value);
 		pair = pair->next;
@@ -213,9 +214,54 @@ char *ht_get( hashtable_t *hashtable, uint32_t key ) {
 	}else{
 		printf(" ->[%d,%s]\n", pair->key, pair->value);
 		
+	
+		char *buffer = malloc(sizeof(char)*(pair->size));
+		memcpy(buffer, pair->value, pair->size);
+		
 		//READ UNLOCK2
 		pthread_rwlock_unlock(&rwlock2);
-		return pair->value;
+		
+		return buffer;
+	}
+	
+}
+
+//Retrieve a pair from a hash table
+uint32_t ht_get_length( hashtable_t *hashtable, uint32_t key ) {
+	uint32_t bin = 0;
+	entry_t *pair;
+
+	//bin = ht_hash( hashtable, key );
+	bin = ht_hash1( hashtable, key );
+	
+	/* Step through the bin, looking for our value. */
+	pair = hashtable->table[ bin ];
+	
+	//READ LOCK1
+	pthread_rwlock_rdlock(&rwlock);
+	
+	while( pair != NULL && key != pair->key ) {
+		
+		pair = pair->next;
+	}
+
+
+	//READ LOCK2
+	pthread_rwlock_rdlock(&rwlock2);
+	
+	//READ UNLOCK1
+	pthread_rwlock_unlock(&rwlock);
+
+	/* Did we actually find anything? */
+	if( pair == NULL || key != pair->key ) {
+		//READ UNLOCK2
+		pthread_rwlock_unlock(&rwlock2);
+		return 0;
+	}else{
+		//READ UNLOCK2
+		pthread_rwlock_unlock(&rwlock2);
+		
+		return pair->size;
 	}
 	
 }
@@ -256,7 +302,7 @@ void ht_save( hashtable_t *hashtable, FILE *f ) {
 		pthread_rwlock_rdlock(&rwlock);//erro no lock, fica encravado se for write lock, perceber porque
 		
 		while( pair != NULL ) {	
-			fprintf(f, "%s %u %s\n", "rd", pair->key, pair->value);
+			fprintf(f, "%s %u %s %u\n", "rd", pair->key, pair->value, pair->size);
 			pair = pair->next;
 		}
 		
@@ -270,23 +316,28 @@ void ht_save( hashtable_t *hashtable, FILE *f ) {
 void ht_read( hashtable_t *hashtable, FILE *f) {
 	uint32_t key = 0;
 	char *value;
-	char buff[256];
+	char buff[256];//corrigir a leitura do ficheiro
 	char instr[4];
+	uint32_t size;
 	
-	while(fscanf(f, "%s" "%u" "%s",instr, &key, buff) != EOF){
+	
+	while(fscanf(f, "%s" "%u" "%s" "%u",instr, &key, buff, &size) != EOF){
+		char * newbuff1 = malloc(sizeof(char)*size);
 		if(strcmp("rd", instr)){
-			value = buff;
-			ht_set(hashtable, key, value, 0);
+			
+			memcpy(newbuff1,buff,size);
+			ht_set(hashtable, key, newbuff1, size, 0);
 		}else if(strcmp("wr0", instr)){
-			value = buff;
-			ht_set(hashtable, key, value, 0);
+			
+			memcpy(newbuff1,buff,size);
+			ht_set(hashtable, key, newbuff1, size, 0);
 		}else if(strcmp("wr1", instr)){
-			value = buff;
-			ht_set(hashtable, key, value, 1);
+			
+			memcpy(newbuff1,buff,size);
+			ht_set(hashtable, key, newbuff1, size, 1);
 		}else if(strcmp("rm", instr)){
 			ht_remove(hashtable, key);
 		}
-		
 	}
 }
 
@@ -296,8 +347,6 @@ int ht_remove(hashtable_t *hashtable, uint32_t key){
 	int flag = -1;
 	entry_t *next;
 	entry_t *last;
-	//entry_t *aux;
-	//entry_t *pair;
 
 
 

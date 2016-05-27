@@ -11,7 +11,7 @@
 #include <string.h>
 #include <netdb.h>
 #include "storyserver.h"
-#define MAX_VALUES 10
+#define MAX_VALUES 100
 
 int kv_connect(char * kv_server_ip, int kv_server_port){
 	
@@ -41,9 +41,13 @@ int kv_connect(char * kv_server_ip, int kv_server_port){
 	}
 	
 	char port[32];
+	if(-1 == write(fd, "1",sizeof(char))){
+		printf("Error\n");
+		exit(1);
+	}
 	
 	if(-1 == read(fd, port, sizeof(int))){
-		printf("Error\n");
+		printf("Error reading the data server port\n");
 		exit(1);//error
 	}		 
 	
@@ -52,7 +56,7 @@ int kv_connect(char * kv_server_ip, int kv_server_port){
 	
 	fd2 = socket(AF_INET,SOCK_STREAM,0);//TCP socket	
 	if(fd == -1){
-		printf("Erro: \n");
+		printf("Error\n");
 		exit(1);//error
 	 }
 	
@@ -61,7 +65,7 @@ int kv_connect(char * kv_server_ip, int kv_server_port){
 	
 	n = connect(fd2,(struct sockaddr*)&addr, sizeof(addr));
 	if(n == -1){
-		printf("Erro: \n");
+		printf("Erro connecting to data server \n");
 		exit(1);//error
 	}
 	
@@ -93,7 +97,7 @@ int kv_write(int kv_descriptor, uint32_t key, char * value, uint32_t value_lengt
 		printf("Erro: \n");
 		exit(1);//error
 	}
-	printf("enviei:.....%s....\n", value);
+	puts(value);
 	
 	//RECEIVE THE RESULT
 	if(-1 == read(kv_descriptor, &mensagem2, sizeof(mensagem2))){
@@ -116,7 +120,6 @@ int kv_read(int kv_descriptor, uint32_t key, char * value, uint32_t value_length
 	message1 mensagem2;
 	mensagem.key = key;
 	mensagem.type_msg = 2;
-	char b[value_length];
 	
 	//SEND THE INTENTION
 	if(-1 == write(kv_descriptor, &mensagem, sizeof(mensagem))){
@@ -133,15 +136,16 @@ int kv_read(int kv_descriptor, uint32_t key, char * value, uint32_t value_length
 		printf("FAIL TO READ KEY[%u] - CLIENT SIDE\n", key);
 		return -2;
 	}else{
-		bzero(b, value_length);
-		if(-1 == read(kv_descriptor, b, value_length)){
+		/*char *b = malloc(sizeof(value_length));
+		bzero(b, value_length);*/
+		if(-1 == read(kv_descriptor, value, value_length)){
 			printf("Error: \n");
 			exit(1);//errorr
 		}
 		
 		//b[value_length-1]='\0';
-		b[mensagem2.size] = '\0';
-		value = b;
+		/*b[mensagem2.size-1] = '\0';
+		value = b;*/
 		printf ("recebi:-------%s--------\n", value);
 		//printf ("size:-------%d--------\n", mensagem2.size);
 		return mensagem2.size;
@@ -223,5 +227,7 @@ int main(){
 			printf ("key - %10u value %s", i, linha);
 		}
 	}
+
+	
 	kv_close(kv);
 }

@@ -32,11 +32,12 @@ volatile sig_atomic_t stop;
 char fifo_name1[] = "/tmp/fifo1";
 char fifo_name2[] = "/tmp/fifo2";
 
-//shutdown signal handler
+//SHUTDOWN SIGNAL HANDLER
 void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
 	int fd1;	
 	char msg [32];
+	
 	/* write to the FIFO */
 	fd1 = open(fifo_name1, O_RDWR);
 	strcpy(msg,"quit");
@@ -47,7 +48,7 @@ void inthand(int signum) {
     exit(2);
 }
 
-// This will handle connection for each client
+//NEW CLIENTS HANDLER
 void *connection_handler(){
 	
 	int fd, newfd, addrlen;
@@ -78,20 +79,29 @@ void *connection_handler(){
 	addrlen = sizeof(addr);    
     
     
+    char port[]="1234";
+    char buff[4];
     while( (newfd = accept(fd, (struct sockaddr*)&addr, &addrlen)) ){
-		
-		if(-1 == write(newfd, "9000", 4)){
-			printf("Erro: \n");
+		bzero(buff, 4);
+		if(read(newfd, buff,sizeof(char)*2) > 0){
+			if(strcmp(buff, "1") == 0){
+				if(-1 == write(newfd, port, 4)){
+					printf("Erro: sending port\n");
+				}
+			}else if(strcmp(buff, "0") == 0){
+				if(read(newfd, buff,sizeof(char)*4) > 0)
+				strcpy(port, buff);
+			}
 		}
 	}
-	
 }
 
-// This will handle the keyboard inputs
+//KEYBOARD HANDLER
 void *keyboard_handler(){
 	char buf2[32];
 	char msg[32];
 	bzero(buf2, 32);
+	
     //OPEN FIFO TO READ AND WRITE
     int s2c = open(fifo_name1, O_RDWR);
     
@@ -105,7 +115,7 @@ void *keyboard_handler(){
 				
 				strcpy(msg,"quit");
 				write(s2c, msg, strlen(msg)+1);
-				printf("-----%s-----\n", msg);
+				
 				sleep(2);
 				exit(0);
 			}
@@ -114,12 +124,14 @@ void *keyboard_handler(){
 	}
 }
 
+//FIFO HANDLER
 void *FIFO_handler(){
     int c2s, s2c, c=0, i;
 	char msg[80], buf[10];
     pid_t id;
     struct stat st;		
-        // CREATE FIFOS IF THEY DONT EXIST
+    
+    // CREATE FIFOS IF THEY DONT EXIST
     if (stat(fifo_name1, &st) != 0)
         mkfifo(fifo_name1, 0666);
     if (stat(fifo_name2, &st) != 0)
@@ -144,7 +156,7 @@ void *FIFO_handler(){
 		i = read(c2s, buf, sizeof(char)*10);
 		
 		if ( i > 0){
-			//printf("1 received: %s \n", buf);
+			
 			c=0;
 			//WRITE TO THE FIFO
 			strcpy(msg,"front");
@@ -171,6 +183,7 @@ void *FIFO_handler(){
 				//CHILD
 				char *envp[] = { NULL };
 				char *argv[] = { NULL };
+				printf("Data server Rebooted\n");
 				execve("./server", argv, envp );
 			}
 		}	
@@ -203,14 +216,6 @@ int main(){
 /*
 TODO
 
-VERIFICAR NOVAMENTE OS LOCKS DE ACORDO COM A PROCURA ASSOCIADA A UMA ESCRITA OU DELETE->done confirmar que e correcto
-FAZER O ALGORITMO DE DETECÇAO DE SAIDA, FRONT ESCREVE IMPAR E DATA ESCREVE PARES NO FIFO->check 
-FAZERF CTRL+C NO FRONT SERVER PARA ENVIAR MENSAGEM DE SAIDA PARA A FIFO->check
-FAZERF CTRL+C NO DATA SERVER PARA ENVIAR MENSAGEM DE SAIDA PARA A FIFO->acho que nao e suposto
-FAZER BACKUP QUANDO SAI PELA FIFO (DATA)->check
-OPTIMIZAR BACKUP (A CADA 100 INSTRUÇOES APAGAR LOG E COPIAR A HASH)->check
-
--------->FAZER ALOCAÇAO E FREES<-----------------
--------->FAULT TOLERANCE (TESTAR VARIAS VEZES)<-----------------
+HAVE FUN BIATCH
 
 */

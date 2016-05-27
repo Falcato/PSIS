@@ -1,5 +1,3 @@
-//gcc server.c -lpthread -o server
- 
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,7 +15,7 @@
 #include <signal.h>
 #include "hash.h"
 #include "storyserver.h" 
-
+#define PORT 9000
 
 //the thread function
 void *connection_handler(void *);
@@ -43,7 +41,7 @@ volatile sig_atomic_t stop;
 //FILE global variable
 FILE *f;
 
-//shutdown signal handler
+//SHUTDOWN SIGNAL HANDLER
 void inthand(int signum) {
 	printf("\nRECEIVED SHIT DOWN SIGNAL\n");
 	//PRINT THE HASH TO TERMINAL
@@ -61,8 +59,7 @@ void inthand(int signum) {
     exit(2);
 }
 
-
-// This will handle connection for each client
+//NEW CLIENT HANDLER
 void *connection_handler(void *socket_desc){
     int a;
     int n;
@@ -71,19 +68,26 @@ void *connection_handler(void *socket_desc){
 	char * buf_value;
 	message1 m_read, m_write;
 	
-	if(x == 100){
-		//OPEN FILE TO WRITE
-		f = fopen("file.txt", "w");
-		
-		//SAVE THE HASH TO THE FILE
-		ht_save(hashtable, f);
-		
-		//CLOSE THE FILE
-		fclose(f);
-	}
 	
 	while(read(newfd, &m_read, sizeof(m_read)) > 0){ 
 		
+
+		if(x == 100){
+			//OPEN FILE TO WRITE
+			f = fopen("file.txt", "w");
+			
+			//SAVE THE HASH TO THE FILE
+			ht_save(hashtable, f);
+			
+			//CLOSE THE FILE
+			fclose(f);
+			
+			x = 0;
+		}
+
+
+
+
 		//RECEIVE THE MESSAGE TYPE AND ASSOCIATED KEY
 		n = 9;
 		if( -1 == n ){
@@ -99,31 +103,31 @@ void *connection_handler(void *socket_desc){
 		
 		//IF TYPE IS WRITE OR OVERWRITE
 		if( m_read.type_msg == WRITE  || m_read.type_msg == OVERWRITE){
-			//char * newBuffewr = malloc(m_read.size);
+			
+			char * newbuff = malloc(sizeof(char)*m_read.size);
+			
 			//RECEIVE THE CONTENT TO SAVE IN THE HASH
-			read(newfd, buffer, m_read.size);
-			buf_value = buffer;
+			read(newfd, newbuff, m_read.size);
+			//buf_value = buffer;
 			//printf("recebi:******%s*****\n", newbuffer);
-			printf("recebi:******%s*****\n", buffer);
+			printf("recebi:******%s*****\n", newbuff);
 			
 
 			
 			if(m_read.type_msg == WRITE){
-				a = ht_set(hashtable, m_read.key, buf_value, 0);
-				//a = ht_set(hashtable, m_read.key, newbuffer, m_read.size, 0)
+				//a = ht_set(hashtable, m_read.key, buf_value, 0);
+				a = ht_set(hashtable, m_read.key, newbuff, m_read.size, 0);
 			}else{
-				a = ht_set(hashtable, m_read.key, buf_value, 1);
+				//a = ht_set(hashtable, m_read.key, buf_value, 1);
+				a = ht_set(hashtable, m_read.key, newbuff, m_read.size, 0);
 			}
-		
-			//MUTEX UNLOCK
-			//pthread_mutex_unlock(&mux);
 			
 			
 			//SEND THE RESULT
 			if(a == -2){
 				m_write.type_msg = FAIL;
 				m_write.key = m_read.key;
-				//free(newbuffer)
+				free(newbuff);
 				if( -1 == write(newfd, &m_write, sizeof(m_write)) ){
 					printf("Erro: \n");
 					exit(1);//error
@@ -134,9 +138,9 @@ void *connection_handler(void *socket_desc){
 				
 				//WRITE LOG MESSAGE TO FILE		
 				if(m_read.type_msg == WRITE ){
-					fprintf(f, "%s %u %s\n", "wr0", m_read.key, buffer);
+					fprintf(f, "%s %u %s %u\n", "wr0", m_read.key, newbuff, m_read.size);
 				}else{
-					fprintf(f, "%s %u %s\n", "wr1", m_read.key, buffer);
+					fprintf(f, "%s %u %s %u\n", "wr1", m_read.key, newbuff, m_read.size);
 				}
 				x++;
 				fclose(f);
@@ -155,17 +159,15 @@ void *connection_handler(void *socket_desc){
 		//IF TYPE IS READ
 		if(m_read.type_msg == READ){
 			
-			//MUTEX LOCK
-			//pthread_mutex_lock(&mux);
 			
 			//Try to read the value from the hash
-			buf_value = ht_get( hashtable, m_read.key);
+			char * newbuff2 = malloc(sizeof(char)*m_read.size);
+			//memcpy(newbuff2, ht_get( hashtable, m_read.key), m_read.size);
+			newbuff2 = ht_get( hashtable, m_read.key);
 			
-			//MUTEX UNLOCK
-			//pthread_mutex_unlock(&mux);
 			
 			//IF THE KEY DOESNT EXIST IN THE HASH
-			if( buf_value == NULL){
+			if( newbuff2 == NULL){
 				m_write.type_msg = FAIL;
 				m_write.key = m_read.key;
 				if(-1 == write(newfd, &m_write, sizeof(m_write)) ){
@@ -177,9 +179,8 @@ void *connection_handler(void *socket_desc){
 				m_write.type_msg = SUCCESS;
 				m_write.key = m_read.key;
 				
-				strcpy(buffer, buf_value);// verificar se é feito atraves de strcpy e depois strlen
-				m_write.size = strlen(buffer);//ou se se deve fazer strncpy com n a ser o numero de value_length
 				
+				m_write.size = ht_get_length(hashtable, m_read.key);
 				//SEND THE RESULT 
 				if(-1 == write(newfd, &m_write, sizeof(m_write))){
 					printf("Erro: \n");
@@ -187,11 +188,11 @@ void *connection_handler(void *socket_desc){
 				}
 				
 				//SEND THE CONTENT STORED WITH THAT KEY
-				if(-1 == write(newfd, buffer, m_write.size) ){
+				if(-1 == write(newfd, newbuff2, m_write.size) ){
 					printf("Erro: \n");
 					exit(1);//error
 				}
-				printf("enviei:******%s*****\n", buffer);
+				printf("enviei:******%s*****\n", newbuff2);
 				bzero(buffer,128);			
 			}						
 		}   
@@ -200,8 +201,6 @@ void *connection_handler(void *socket_desc){
 		if(m_read.type_msg == DELETE){
 			int flag = 0;
 			
-			//MUTEX LOCK
-			//pthread_mutex_lock(&mux);
 			
 			if(ht_get(hashtable, m_read.key) == NULL){
 				printf("The key %u is not stored\n", m_read.key);
@@ -209,14 +208,13 @@ void *connection_handler(void *socket_desc){
 			}else{
 				flag = ht_remove(hashtable, m_read.key);
 			}
-			//MUTEX UNLOCK
-			//pthread_mutex_unlock(&mux);
+
 			
 			if(flag == 1){
 				//OPEN FILE TO APPEND
 				f = fopen("file.txt", "a");
 				//WRITE LOG MESSAGE TO FILE		
-				fprintf(f, "%s %u %s\n", "rm", m_read.key, "remove");
+				fprintf(f, "%s %u %s %u\n", "rm", m_read.key, "remove", 0);
 				x++;
 				fclose(f);
 				
@@ -241,19 +239,16 @@ void *connection_handler(void *socket_desc){
 	}
 	puts("Client disconnected");
 	fflush(stdout);
-    /*else if(n == -1){
-        perror("recv failed");
-    }*/
-         
+        
     return 0;
 } 
 
+//FIFO HANDLER
 void *FIFO_handler(){
     int c2s, s2c, c=0, i;
 	char msg[80], buf[10];
     char fifo_name1[] = "/tmp/fifo1";
     char fifo_name2[] = "/tmp/fifo2";
-    
     pid_t id;
     
     //OPEN FIFOS TO READ AND WRITE
@@ -269,7 +264,7 @@ void *FIFO_handler(){
 		//READ FROM THE FIFO
 		bzero(buf,10);
 		i = read(s2c, buf, sizeof(char)*10);
-		if(i > 0) printf("----%s----\n", buf);
+		//if(i > 0) printf("----%s----\n", buf);
 		if( i > 0 && strcmp(buf, "quit") == 0){
 			
 			//unlink(fifo_name1);
@@ -287,7 +282,7 @@ void *FIFO_handler(){
 
 			exit(2);   
 		}else if(i > 0){
-			printf("data received: %s \n", buf);
+			//printf("data received: %s \n", buf);
 			c=0;
 			
 			//WRITE TO THE FIFO
@@ -315,7 +310,7 @@ void *FIFO_handler(){
 				//CHILD
 				char *envp[] = { NULL };
 				char *argv[] = { NULL };
-				printf("im back baby!!\n");
+				printf("Front Server Rebooted\n");
 				execve("./front", argv, envp );
 			}
 
@@ -347,7 +342,32 @@ int main(){
 	memset((void*)&addr, (int)'\0', sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port = htons(9000);
+	addr.sin_port = htons(9999);
+	
+	//SEND THE DATA SERVER PORT TO THE FRONT SERVER
+	int front = socket(AF_INET, SOCK_STREAM, 0);
+	int n = connect(front,(struct sockaddr*)&addr, sizeof(addr));
+	if(n == -1){
+		printf("Erro on front server\n");
+		exit(1);//error
+	}
+	
+	char port[32];
+	if(-1 == write(front, "0",sizeof(char))){
+		printf("Error\n");
+		exit(1);
+	}
+	sprintf(port,"%d",PORT);
+	if(-1 == write(front, port,sizeof(char)*4)){
+		printf("Error\n");
+		exit(1);
+	}
+	close(front);
+	
+	
+	
+	
+	addr.sin_port = htons(PORT);
 	
 	//Bind
 	if(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) exit(1);
@@ -379,13 +399,14 @@ int main(){
 	
 	while( (newfd = accept(fd, (struct sockaddr*)&addr, &addrlen)) ){
 			
-		//puts("Connection accepted");
+		
 		if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &newfd) < 0 ){
             perror("could not create thread");
+            
             exit (1);
         }
         pthread_join(thread_id, NULL);
-        //puts("Thread created and handle");
+        
 	}
 	exit(0);
 }
