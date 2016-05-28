@@ -115,11 +115,9 @@ void *connection_handler(void *socket_desc){
 
 			
 			if(m_read.type_msg == WRITE){
-				//a = ht_set(hashtable, m_read.key, buf_value, 0);
 				a = ht_set(hashtable, m_read.key, newbuff, m_read.size, 0);
 			}else{
-				//a = ht_set(hashtable, m_read.key, buf_value, 1);
-				a = ht_set(hashtable, m_read.key, newbuff, m_read.size, 0);
+				a = ht_set(hashtable, m_read.key, newbuff, m_read.size, 1);
 			}
 			
 			
@@ -261,16 +259,14 @@ void *FIFO_handler(){
 	//COUNTER TO CHECK FOR NON RESPONSIVE PROGRAM
 	c = 0;	
     while(1){
-		sleep(0.5);
 		//READ FROM THE FIFO
 		bzero(buf,10);
 		i = read(s2c, buf, sizeof(char)*10);
 		
-		if(i > 0) printf("----%s----\n", buf);
-		if( i > 0 && strcmp(buf, "shutdown") == 0){
+		//if(i > 0) printf("----%s----\n", buf);
+		
+		if( i > 0 && strcmp(buf, "quit") == 0){
 			
-			//unlink(fifo_name1);
-			//unlink(fifo_name2);
 			printf("\nRECEIVED SHIT DOWN SIGNAL\n");
 
 			
@@ -293,7 +289,7 @@ void *FIFO_handler(){
 			
 		}
 		
-		sleep(1.5);
+		sleep(1);
 		c++;    
 		if (c>6){
 			//WAITS 5SEC THEN REBOOTS THE SERVER
@@ -354,28 +350,29 @@ int main(){
 		exit(1);//error
 	}
 	
-	char port[32];
+	char port_buf[32];
 	if(-1 == write(front, "0",sizeof(char))){
 		printf("Error\n");
 		exit(1);
 	}
-	sprintf(port,"%d",PORT);
-	if(-1 == write(front, port,sizeof(char)*4)){
-		printf("Error\n");
-		exit(1);
-	}
-	close(front);
-	
-	
-	
 	
 	addr.sin_port = htons(PORT);
 	
 	//Bind
+	int port = PORT;
 	while(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-		addr.sin_port = htons(PORT+1);
-		printf("----%d---port\n");
+		port = port +1;
+		addr.sin_port = htons(port);
+		printf("----%d---port\n",port);
 	}
+	
+	//Send the data port to the front server after bind
+	sprintf(port_buf,"%d",port);
+	if(-1 == write(front, port_buf,sizeof(char)*4)){
+		printf("Error\n");
+		exit(1);
+	}
+	close(front);
 	puts("Bind done");
 	
 	//Listen

@@ -13,7 +13,6 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
-#define DATA_PORT 9000
 
 //the thread functions
 void *connection_handler();
@@ -40,12 +39,10 @@ void inthand(int signum) {
 	
 	/* write to the FIFO */
 	fd1 = open(fifo_name1, O_RDWR);
-	strcpy(msg,"shutdown");
+	strcpy(msg,"quit");
 	write(fd1, msg, strlen(msg)+1);
-	write(fd1, msg, strlen(msg)+1);
-	write(fd1, msg, strlen(msg)+1);
+
 	sleep(3);
-	//close(fd1);
 	
     exit(2);
 }
@@ -93,6 +90,7 @@ void *connection_handler(){
 			}else if(strcmp(buff, "0") == 0){
 				if(read(newfd, buff,sizeof(char)*4) > 0)
 				strcpy(port, buff);
+				port[4]='\0';
 			}
 		}
 	}
@@ -115,9 +113,7 @@ void *keyboard_handler(){
 		if(read(0, buf2, 32) > 0){
 			if(strcmp(buf2,"quit\n") == 0){
 				
-				strcpy(msg,"shutdown");
-				write(s2c, msg, strlen(msg)+1);
-				write(s2c, msg, strlen(msg)+1);
+				strcpy(msg,"quit");
 				write(s2c, msg, strlen(msg)+1);
 								
 				sleep(3);
@@ -167,7 +163,7 @@ void *FIFO_handler(){
 			write(s2c, msg, strlen(msg)+1);
 		}
 		
-		sleep(1.25);
+		sleep(2);
 		c++;    
 		if (c>6){
 			//WAITS 5SEC THEN REBOOTS THE SERVER
@@ -217,9 +213,4 @@ int main(){
 	
 	exit(0);
 }
-/*
-TODO
 
-HAVE FUN BIATCH
-
-*/

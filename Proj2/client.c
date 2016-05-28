@@ -11,8 +11,40 @@
 #include <string.h>
 #include <netdb.h>
 #include "kv_lib.h"
-#define MAX_VALUES 100
+#define MAX_VALUES 10
 
+
+int main(){
+	
+	char linha[100];
+	int kv = kv_connect("127.0.0.1", 9999);
+
+	printf("press enter to fork and write values\n");
+	getchar();
+	
+	fork();
+	
+	for (int i = 0; i < 10; i++){
+		sprintf(linha, "%u", i);
+		kv_write(kv, 0 , linha, strlen(linha)+1, 1);
+	}
+
+	if(kv_read(kv, 0 , linha, 1000) == 0){
+		printf ("key - 0 value %s", linha);
+	}
+
+
+	kv_close(kv);
+	
+	exit(0);
+
+}
+
+
+
+
+
+/*
 int main(){
 	
 	char linha[100];
@@ -48,7 +80,7 @@ int main(){
 	getchar();
 	for (uint32_t i = 0; i < MAX_VALUES; i ++){
 		sprintf(linha, "%u", i*10);
-		kv_write(kv, i , linha, strlen(linha)+1, 0); /* will not overwrite*/
+		kv_write(kv, i , linha, strlen(linha)+1, 0);
 	}
 
 	printf("press enter to read new values\n");
@@ -62,3 +94,4 @@ int main(){
 	
 	kv_close(kv);
 }
+*/
