@@ -370,7 +370,10 @@ int main(){
 	addr.sin_port = htons(PORT);
 	
 	//Bind
-	if(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) exit(1);
+	while(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+		addr.sin_port = htons(PORT+1);
+		printf("----%d---port\n");
+	}
 	puts("Bind done");
 	
 	//Listen
