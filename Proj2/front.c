@@ -40,9 +40,11 @@ void inthand(int signum) {
 	
 	/* write to the FIFO */
 	fd1 = open(fifo_name1, O_RDWR);
-	strcpy(msg,"quit");
+	strcpy(msg,"shutdown");
 	write(fd1, msg, strlen(msg)+1);
-	sleep(2);
+	write(fd1, msg, strlen(msg)+1);
+	write(fd1, msg, strlen(msg)+1);
+	sleep(3);
 	//close(fd1);
 	
     exit(2);
@@ -113,10 +115,12 @@ void *keyboard_handler(){
 		if(read(0, buf2, 32) > 0){
 			if(strcmp(buf2,"quit\n") == 0){
 				
-				strcpy(msg,"quit");
+				strcpy(msg,"shutdown");
 				write(s2c, msg, strlen(msg)+1);
-				
-				sleep(2);
+				write(s2c, msg, strlen(msg)+1);
+				write(s2c, msg, strlen(msg)+1);
+								
+				sleep(3);
 				exit(0);
 			}
         }
@@ -163,7 +167,7 @@ void *FIFO_handler(){
 			write(s2c, msg, strlen(msg)+1);
 		}
 		
-		sleep(2);
+		sleep(1.25);
 		c++;    
 		if (c>6){
 			//WAITS 5SEC THEN REBOOTS THE SERVER
@@ -184,7 +188,7 @@ void *FIFO_handler(){
 				char *envp[] = { NULL };
 				char *argv[] = { NULL };
 				printf("Data server Rebooted\n");
-				execve("./server", argv, envp );
+				execve("./data", argv, envp );
 			}
 		}	
 	}
