@@ -29,7 +29,7 @@ int main(){
 		kv_write(kv, 0 , linha, strlen(linha)+1, 1);
 	}
 
-	if(kv_read(kv, 0 , linha, 1000) == 0){
+	if(kv_read(kv, 0 , linha, 1000) > 0){
 		printf ("key - 0 value %s", linha);
 	}
 

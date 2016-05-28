@@ -124,7 +124,7 @@ int kv_read(int kv_descriptor, uint32_t key, char * value, uint32_t value_length
 	
 	//SEND THE INTENTION
 	if(-1 == write(kv_descriptor, &mensagem, sizeof(mensagem))){
-		printf("Erro: \n");
+		printf("Error: \n");
 		exit(1);//errorr
 	}
 	//RECEIVE THE RESULT
@@ -139,7 +139,7 @@ int kv_read(int kv_descriptor, uint32_t key, char * value, uint32_t value_length
 	}else{
 
 		if(-1 == read(kv_descriptor, value, value_length)){
-			printf("Error: \n");
+			printf("Error: read from data server\n");
 			exit(1);//errorr
 		}
 		
